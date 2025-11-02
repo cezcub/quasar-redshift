@@ -134,106 +134,11 @@ def train_model_with_params(model, X_train, y_train, X_val, y_val, train_params,
 
 # ==================== ARCHITECTURE-SPECIFIC OBJECTIVES ====================
 
-def efficientnet_objective(trial):
-    """Optuna objective for EfficientNet"""
-    model_params = {
-        'model_size': trial.suggest_categorical('model_size', ['b3', 'b4']),
-        'dropout_rate': trial.suggest_float('dropout_rate', 0.1, 0.5),
-        'drop_connect_rate': trial.suggest_float('drop_connect_rate', 0.1, 0.3)
-    }
-    
-    train_params = {
-        'learning_rate': trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True),
-        'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
-        'weight_decay': trial.suggest_float('weight_decay', 1e-7, 1e-2, log=True),
-        'grad_clip_norm': trial.suggest_float('grad_clip_norm', 0.5, 2.0),
-        'optimizer_type': trial.suggest_categorical('optimizer_type', ['adamw', 'sgd'])
-    }
-    
-    if train_params['optimizer_type'] == 'sgd':
-        train_params['momentum'] = trial.suggest_float('momentum', 0.8, 0.99)
-    
-    try:
-        model = QuasarEfficientNet(input_dim=X_train_scaled.shape[1], **model_params)
-        val_loss = train_model_with_params(model, X_train_scaled, y_train, X_test_scaled, y_test, train_params, epochs=40)
-        return val_loss
-    except Exception as e:
-        print(f"Trial failed: {e}")
-        return float('inf')
-
-def convnext_objective(trial):
-    """Optuna objective for ConvNeXt"""
-    model_params = {
-        'model_size': trial.suggest_categorical('model_size', ['tiny', 'small', 'base']),
-        'dropout_rate': trial.suggest_float('dropout_rate', 0.1, 0.4),
-        'drop_path_rate': trial.suggest_float('drop_path_rate', 0.0, 0.3),
-        'layer_scale_init_value': trial.suggest_float('layer_scale_init_value', 1e-7, 1e-5, log=True)
-    }
-    
-    train_params = {
-        'learning_rate': trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True),
-        'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
-        'weight_decay': trial.suggest_float('weight_decay', 1e-7, 1e-2, log=True),
-        'grad_clip_norm': trial.suggest_float('grad_clip_norm', 0.5, 2.0),
-        'optimizer_type': trial.suggest_categorical('optimizer_type', ['adamw', 'sgd'])
-    }
-    
-    if train_params['optimizer_type'] == 'sgd':
-        train_params['momentum'] = trial.suggest_float('momentum', 0.8, 0.99)
-    
-    use_attention = trial.suggest_categorical('use_attention', [True, False])
-    
-    try:
-        if use_attention:
-            model = ConvNeXtWithAttention(input_dim=X_train_scaled.shape[1], **model_params)
-        else:
-            model = QuasarConvNeXt(input_dim=X_train_scaled.shape[1], **model_params)
-        
-        val_loss = train_model_with_params(model, X_train_scaled, y_train, X_test_scaled, y_test, train_params, epochs=40)
-        return val_loss
-    except Exception as e:
-        print(f"Trial failed: {e}")
-        return float('inf')
-
-def cnn_transformer_objective(trial):
-    """Optuna objective for CNN-Transformer Hybrid"""
-    model_params = {
-        'model_size': trial.suggest_categorical('model_size', ['small', 'base', 'large']),
-        'fusion_method': trial.suggest_categorical('fusion_method', ['attention', 'concatenation', 'addition']),
-        'cnn_layers': trial.suggest_int('cnn_layers', 2, 5),
-        'dropout': trial.suggest_float('dropout', 0.1, 0.4)
-    }
-    
-    train_params = {
-        'learning_rate': trial.suggest_float('learning_rate', 1e-5, 1e-2, log=True),
-        'batch_size': trial.suggest_categorical('batch_size', [16, 32, 64, 128]),
-        'weight_decay': trial.suggest_float('weight_decay', 1e-7, 1e-2, log=True),
-        'grad_clip_norm': trial.suggest_float('grad_clip_norm', 0.5, 2.0),
-        'optimizer_type': trial.suggest_categorical('optimizer_type', ['adamw', 'sgd'])
-    }
-    
-    if train_params['optimizer_type'] == 'sgd':
-        train_params['momentum'] = trial.suggest_float('momentum', 0.8, 0.99)
-    
-    use_adaptive = trial.suggest_categorical('use_adaptive', [True, False])
-    
-    try:
-        if use_adaptive:
-            model = AdaptiveCNNTransformer(input_dim=X_train_scaled.shape[1], **model_params)
-        else:
-            model = QuasarCNNTransformer(input_dim=X_train_scaled.shape[1], **model_params)
-        
-        val_loss = train_model_with_params(model, X_train_scaled, y_train, X_test_scaled, y_test, train_params, epochs=40)
-        return val_loss
-    except Exception as e:
-        print(f"Trial failed: {e}")
-        return float('inf')
-
 def vit_objective(trial):
     """Optuna objective for Vision Transformer"""
     model_params = {
         'model_size': trial.suggest_categorical('model_size', ['tiny', 'small', 'base']),
-        'patch_size': trial.suggest_int('patch_size', 1, max(1, X_train_scaled.shape[1] // 4)),
+        # patch_size is automatically determined by QuasarViT based on input_dim
         'dropout': trial.suggest_float('dropout', 0.1, 0.4),
         'attention_dropout': trial.suggest_float('attention_dropout', 0.0, 0.3),
         'drop_path_rate': trial.suggest_float('drop_path_rate', 0.0, 0.3),
@@ -307,9 +212,6 @@ def run_architecture_optimization(architecture_name, objective_func, n_trials=20
 if __name__ == "__main__":
     
     architectures = [
-        ("EfficientNet", efficientnet_objective),
-        ("ConvNeXt", convnext_objective),
-        ("CNN_Transformer", cnn_transformer_objective),
         ("Vision_Transformer", vit_objective)
     ]
     

@@ -14,10 +14,11 @@ import torch.optim as optim
 import torch.nn.functional as F
 from cnn import QuasarCNN
 from transformer import QuasarTransformer, create_data_loaders
-from efficientnet import QuasarEfficientNet
+
 from convnext import QuasarConvNeXt, ConvNeXtWithAttention
 from cnn_transformer_hybrid import QuasarCNNTransformer, AdaptiveCNNTransformer
 from vit import QuasarViT
+from hybrid_z_model import QuasarPhotometricRedshiftModel
 
 # Load data
 def load_data(file):
@@ -180,12 +181,7 @@ if __name__ == "__main__":
                 activation='gelu',
                 output_layers=[512, 512, 64]
             ),
-            'EfficientNet': QuasarEfficientNet(
-                input_dim=len(features),  # Will be set dynamically
-                model_size='b4',
-                dropout_rate=0.332,
-                drop_connect_rate=0.196
-            ),
+
             'ConvNeXt': QuasarConvNeXt(
                 input_dim=len(features),  # Will be set dynamically
                 model_size='tiny',
@@ -202,26 +198,30 @@ if __name__ == "__main__":
             ),
             'CNN_Transformer': QuasarCNNTransformer(
                 input_dim=len(features),  # Will be set dynamically
-                model_size='base',
+                model_size='small',
                 fusion_method='attention',
-                cnn_layers=5,
-                dropout=0.2
+                cnn_layers=3,
+                dropout=0.187
             ),
             'Adaptive_CNN_Transformer': AdaptiveCNNTransformer(
                 input_dim=len(features),  # Will be set dynamically
-                model_size='base',
+                model_size='small',
                 fusion_method='attention',
-                cnn_layers=5,
-                dropout=0.2
+                cnn_layers=3,
+                dropout=0.187
             ),
             'ViT': QuasarViT(
                 input_dim=len(features),  # Will be set dynamically
-                model_size='small',
-                dropout=0.2,
-                attention_dropout=0.1,
-                drop_path_rate=0.1,
+                model_size='base',
+                dropout=0.132,
+                attention_dropout=0.141,
+                drop_path_rate=0.148,
                 mlp_ratio=4,
                 use_cls_token=True
+            ),
+            'Hybrid_Z': QuasarPhotometricRedshiftModel(
+                magnitude_dim=len(features),  # Will be set dynamically
+                output_dim=1
             )
         }
 
@@ -346,7 +346,7 @@ if __name__ == "__main__":
                     X_test_tensor = torch.FloatTensor(X_test_scaled).to(device)
                     y_pred_tensor = model(X_test_tensor)
                     y_pred = y_pred_tensor.cpu().numpy().flatten()
-            elif model_name in ['EfficientNet', 'ConvNeXt', 'ConvNeXt_Attention', 'CNN_Transformer', 'Adaptive_CNN_Transformer', 'ViT']:
+            elif model_name in ['ConvNeXt', 'ConvNeXt_Attention', 'CNN_Transformer', 'Adaptive_CNN_Transformer', 'ViT', 'Hybrid_Z']:
                 # All new neural network models require similar PyTorch handling
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 
@@ -356,18 +356,7 @@ if __name__ == "__main__":
                 X_test_scaled = scaler.transform(X_test)
                 
                 # Create model with correct input dimension and optimal hyperparameters
-                if model_name == 'EfficientNet':
-                    model = QuasarEfficientNet(
-                        input_dim=X_train_scaled.shape[1],
-                        model_size='b4',
-                        dropout_rate=0.332,
-                        drop_connect_rate=0.196
-                    ).to(device)
-                    lr = 0.00973
-                    weight_decay = 0.00125
-                    batch_size = 64
-                    grad_clip_norm = 0.584
-                elif model_name == 'ConvNeXt':
+                if model_name == 'ConvNeXt':
                     model = QuasarConvNeXt(
                         input_dim=X_train_scaled.shape[1],
                         model_size='tiny',
@@ -394,56 +383,94 @@ if __name__ == "__main__":
                 elif model_name == 'CNN_Transformer':
                     model = QuasarCNNTransformer(
                         input_dim=X_train_scaled.shape[1],
-                        model_size='base',
+                        model_size='small',
                         fusion_method='attention',
                         cnn_layers=3,
-                        dropout=0.2
+                        dropout=0.187
                     ).to(device)
-                    lr = 0.001
-                    weight_decay = 1e-4
-                    batch_size = 64
-                    grad_clip_norm = 1.0
+                    lr = 0.00109
+                    weight_decay = 0.000839
+                    batch_size = 16
+                    grad_clip_norm = 1.204
                 elif model_name == 'Adaptive_CNN_Transformer':
                     model = AdaptiveCNNTransformer(
                         input_dim=X_train_scaled.shape[1],
-                        model_size='base',
+                        model_size='small',
                         fusion_method='attention',
                         cnn_layers=3,
-                        dropout=0.2
+                        dropout=0.187
                     ).to(device)
-                    lr = 0.001
-                    weight_decay = 1e-4
-                    batch_size = 64
-                    grad_clip_norm = 1.0
+                    lr = 0.00109
+                    weight_decay = 0.000839
+                    batch_size = 16
+                    grad_clip_norm = 1.204
                 elif model_name == 'ViT':
                     # Let QuasarViT determine optimal patch_size automatically
                     model = QuasarViT(
                         input_dim=X_train_scaled.shape[1],
-                        model_size='tiny',
+                        model_size='base',
                         # patch_size will be determined automatically by QuasarViT
-                        dropout=0.2,
-                        attention_dropout=0.1,
-                        drop_path_rate=0.1,
+                        dropout=0.132,
+                        attention_dropout=0.141,
+                        drop_path_rate=0.148,
                         mlp_ratio=4,
                         use_cls_token=True
                     ).to(device)
-                    lr = 0.0005
-                    weight_decay = 1e-4
+                    lr = 0.00345
+                    weight_decay = 2.35e-05
+                    batch_size = 16
+                    grad_clip_norm = 1.626
+                elif model_name == 'Hybrid_Z':
+                    model = QuasarPhotometricRedshiftModel(
+                        magnitude_dim=X_train_scaled.shape[1],
+                        output_dim=1
+                    ).to(device)
+                    lr = 1e-4  # As specified in Hybrid-z paper
+                    weight_decay = 1e-6
                     batch_size = 64
                     grad_clip_norm = 1.0
                 
                 # Convert to tensors
                 X_train_tensor = torch.FloatTensor(X_train_scaled).to(device)
-                y_train_tensor = torch.FloatTensor(y_train).to(device)
                 X_test_tensor = torch.FloatTensor(X_test_scaled).to(device)
                 
+                # Scale targets for Hybrid-z to [0,1] range due to sigmoid output
+                if model_name == 'Hybrid_Z':
+                    y_max = max(y_train.max(), y_test.max())
+                    y_train_scaled = y_train / y_max
+                    y_test_scaled = y_test / y_max
+                    y_train_tensor = torch.FloatTensor(y_train_scaled).unsqueeze(1).to(device)  # Add dimension for [batch_size, 1]
+                else:
+                    y_train_tensor = torch.FloatTensor(y_train).to(device)
+                    y_max = None
+                
                 # Training setup
-                criterion = nn.MSELoss()
-                optimizer = torch.optim.AdamW(
-                    model.parameters(), 
-                    lr=lr, 
-                    weight_decay=weight_decay
-                )
+                # Use Huber loss for Hybrid-z as specified in paper, MSE for others
+                if model_name == 'Hybrid_Z':
+                    criterion = nn.HuberLoss(delta=1e-3)  # δ=10^-3 as in paper
+                else:
+                    criterion = nn.MSELoss()
+                
+                # Use appropriate optimizer for each model
+                if model_name == 'ViT':
+                    optimizer = torch.optim.SGD(
+                        model.parameters(), 
+                        lr=lr, 
+                        weight_decay=weight_decay,
+                        momentum=0.944
+                    )
+                elif model_name == 'Hybrid_Z':
+                    optimizer = torch.optim.Adam(
+                        model.parameters(), 
+                        lr=lr, 
+                        weight_decay=weight_decay
+                    )
+                else:
+                    optimizer = torch.optim.AdamW(
+                        model.parameters(), 
+                        lr=lr, 
+                        weight_decay=weight_decay
+                    )
                 
                 # Create data loader
                 train_dataset = torch.utils.data.TensorDataset(X_train_tensor, y_train_tensor)
@@ -466,6 +493,10 @@ if __name__ == "__main__":
                 with torch.no_grad():
                     y_pred_tensor = model(X_test_tensor)
                     y_pred = y_pred_tensor.cpu().numpy().flatten()
+                    
+                    # Scale back predictions for Hybrid-z
+                    if model_name == 'Hybrid_Z':
+                        y_pred = y_pred * y_max
             else:
                 # Standard fit for other models
                 model.fit(X_train, y_train)

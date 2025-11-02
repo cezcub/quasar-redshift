@@ -1,3 +1,4 @@
+astropy==7.1.1
 catboost==1.2.8
 charset-normalizer==3.4.3
 cloudpickle==3.1.1
@@ -28,6 +29,7 @@ python-dateutil==2.9.0.post0
 pytz==2025.2
 scikit-learn==1.7.1
 scipy==1.16.1
+seaborn==0.13.2
 six==1.17.0
 sympy==1.14.0
 threadpoolctl==3.6.0
