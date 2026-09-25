@@ -84,4 +84,3 @@ python genmodel.py
 - Neural network models are standardized with `StandardScaler` before training; gradient-boosted and classical models are not.
 - GPU is used automatically if available (`torch.cuda.is_available()`), otherwise falls back to CPU.
 - The generative pipeline (`genmodel.py`) encodes cosmological relationships (flat ΛCDM luminosity distance, K-corrections, quasar luminosity function evolution) directly into the loss functions, and includes a `PhysicsValidator` to check generated samples against spatial distribution, SED slope, and distance-modulus consistency.
-- 
